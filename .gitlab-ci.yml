@@ -1,0 +1,90 @@
+image: gradle:6.0-jdk13
+
+services:
+  - docker:dind
+
+stages:
+  - build
+  - test
+  - validate
+  - deploy
+
+variables:
+  # Disable the Gradle daemon to ensure isolated runs of the CI pipeline.
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+before_script:
+  - export GRADLE_USER_HOME=$(pwd)/.gradle
+
+test:
+  stage: test
+  script:
+    - gradle test createCoverageReport
+#  Disabled until tests are in place
+    - awk -F"," '{ branch += $6 + $7; covered += $7 } END { print covered, "/", branch, "branch coverage"; print 100*covered/branch, "% covered" }' build/jacoco/csv
+  coverage: /\d+.\d+ \% covered/
+
+build:
+  stage: build
+  script:
+    gradle --build-cache shadow
+  artifacts:
+    paths:
+      - desktop/build/libs/desktop*.jar
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: push
+    paths:
+      - build/
+      - desktop/build
+      - server/build
+      - shared/build
+      - .gradle/
+
+checkStyle:
+  stage: validate
+  script: gradle checkstyleMain checkstyleTest
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: pull
+    paths:
+      - build/
+      - desktop/build
+      - server/build
+      - shared/build
+      - .gradle/
+
+spotBugs:
+  stage: validate
+  script: gradle spotbugsMain spotbugsTest
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: pull
+    paths:
+      - build/
+      - desktop/build
+      - server/build
+      - shared/build
+      - .gradle/
+
+PMD:
+  stage: validate
+  script: gradle pmdMain pmdTest
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    policy: pull
+    paths:
+      - build
+      - desktop/build
+      - server/build
+      - shared/build
+      - .gradle/
+
+build-server:
+  stage: deploy
+  image: docker
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" .
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
