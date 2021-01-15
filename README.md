@@ -1,6 +1,5 @@
 # Just another pool game
-![](https://gitlab.ewi.tudelft.nl/cse2115/2019-2020/PO/sem-group-90/template/raw/dev/desktop/assets/sprite/logo.png)
-
+![](desktop/assets/sprite/logo.png)
 
 ### Prerequisites
 * Java 13 (JDK)
